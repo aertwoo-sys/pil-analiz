@@ -1,0 +1,50 @@
+name: Derle ve yayınla
+
+on:
+  push:
+    branches: [main]
+    paths: ['src/**', 'res/**', 'AndroidManifest.xml', 'build.sh', '.github/workflows/**']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: İmza anahtarını yükle
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+        run: echo "$KEYSTORE_B64" | base64 -d > imza.p12
+
+      - name: Derle
+        env:
+          KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASS }}
+          VERSION_CODE: ${{ github.run_number }}
+          VERSION_NAME: 1.${{ github.run_number }}
+        run: ./build.sh
+
+      - name: Güvenlik kontrolü (internet izni ve arka plan bileşeni olmamalı)
+        run: |
+          AAPT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/aapt"
+          "$AAPT" dump badging PilAnalizi.apk | grep uses-permission
+          if "$AAPT" dump badging PilAnalizi.apk | grep -q "android.permission.INTERNET"; then
+            echo "HATA: INTERNET izni bulundu"; exit 1; fi
+          if "$AAPT" dump xmltree PilAnalizi.apk AndroidManifest.xml | grep -qE "E: (service|receiver|provider)"; then
+            echo "HATA: arka plan bileşeni bulundu"; exit 1; fi
+
+      - name: Sürüm yayınla
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v1.${{ github.run_number }}" PilAnalizi.apk \
+            --title "Pil Analizi 1.${{ github.run_number }}" \
+            --notes "${{ github.event.head_commit.message || 'Elle tetiklendi' }}"

@@ -1,0 +1,6 @@
+build/
+PilAnalizi.apk
+imza.p12
+imza.sifre
+*.keystore
+*.idsig

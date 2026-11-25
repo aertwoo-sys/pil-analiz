@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Pil Analizi: yalnızca yerel log okur.
+  - INTERNET izni YOK: uygulama hiçbir ağa bağlanamaz.
+  - Servis, alıcı (receiver), alarm, iş (job) YOK: arka planda hiçbir şey çalışmaz.
+  - DUMP ve BATTERY_STATS izinleri adb ile bir kez verilir (pm grant).
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="tr.yerel.pilanaliz"
+    android:versionCode="1"
+    android:versionName="1.0">
+
+    <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="35" />
+
+    <uses-permission android:name="android.permission.DUMP" />
+    <uses-permission android:name="android.permission.BATTERY_STATS" />
+    <!-- Diğer uygulamaların adlarını göstermek için (UID -> uygulama adı). -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+
+    <application
+        android:label="Pil Analizi"
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="false"
+        android:usesCleartextTraffic="false"
+        android:theme="@android:style/Theme.Material.NoActionBar">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:excludeFromRecents="false"
+            android:configChanges="orientation|screenSize|uiMode">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
