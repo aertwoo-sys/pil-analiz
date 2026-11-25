@@ -38,8 +38,9 @@ final class StatsParser {
         List<AppUsage> apps = new ArrayList<>();
     }
 
+    /** Güç bölümündeki UID satırı: tam olarak 2 boşluk girinti (dumpsys --charged biçimi). */
     private static final Pattern UID_LINE =
-            Pattern.compile("^\\s+UID (\\S+): [0-9.eE+-]+");
+            Pattern.compile("^ {2}UID (u\\d{1,3}[ai]\\d{1,6}|\\d{1,6}): [0-9.]+");
     private static final Pattern STATE_LINE =
             Pattern.compile("^\\s+\\((on|not on) battery, (screen on|screen off/doze)\\)(.*)$");
     private static final Pattern COMPONENT =
@@ -54,23 +55,23 @@ final class StatsParser {
         for (String line : lines) {
             String t = line.trim();
             if (!inPower) {
-                if (t.startsWith("System starts:")) {
+                if (t.startsWith("System starts:") && !r.onBattery) {
                     r.onBattery = t.contains("currently on battery: true");
-                } else if (t.startsWith("Start clock time:")) {
+                } else if (t.startsWith("Start clock time:") && "?".equals(r.startClock)) {
                     r.startClock = t.substring("Start clock time:".length()).trim();
-                } else if (t.startsWith("Time on battery screen off:")) {
+                } else if (t.startsWith("Time on battery screen off:") && "?".equals(r.timeOnBatteryScreenOff)) {
                     r.timeOnBatteryScreenOff = firstDuration(t.substring("Time on battery screen off:".length()));
-                } else if (t.startsWith("Time on battery:")) {
+                } else if (t.startsWith("Time on battery:") && "?".equals(r.timeOnBattery)) {
                     r.timeOnBattery = firstDuration(t.substring("Time on battery:".length()));
                 } else if (t.startsWith("Screen on:") && "?".equals(r.screenOnTime)) {
                     r.screenOnTime = firstDuration(t.substring("Screen on:".length()));
-                } else if (t.startsWith("Discharge:")) {
+                } else if (t.startsWith("Discharge:") && r.dischargeMah < 0) {
                     r.dischargeMah = mah(t);
-                } else if (t.startsWith("Screen on discharge:")) {
+                } else if (t.startsWith("Screen on discharge:") && r.screenOnDischargeMah < 0) {
                     r.screenOnDischargeMah = mah(t);
-                } else if (t.startsWith("Screen off discharge:")) {
+                } else if (t.startsWith("Screen off discharge:") && r.screenOffDischargeMah < 0) {
                     r.screenOffDischargeMah = mah(t);
-                } else if (t.startsWith("Last learned battery capacity:")) {
+                } else if (t.startsWith("Last learned battery capacity:") && r.learnedCapacity < 0) {
                     r.learnedCapacity = (int) mah(t);
                 } else if (t.startsWith("Estimated power use (mAh):")) {
                     inPower = true;
@@ -78,12 +79,17 @@ final class StatsParser {
                 continue;
             }
 
-            // "Estimated power use" bölümü
+            // "Estimated power use" bölümü. Bölüm boş satırla biter; bundan sonra
+            // diğer uygulamaların belirlediği metinler (wakelock adları vb.) gelir.
+            // Sahte satır enjeksiyonunu önlemek için oradan sonrası hiç okunmaz.
+            if (line.isEmpty()) break;
+            if (!line.startsWith("    ") && !UID_LINE.matcher(line).find()) break;
+
             if (t.startsWith("Capacity:")) {
                 Matcher m = Pattern.compile("Capacity: ([0-9]+).*Computed drain: ([0-9.]+)").matcher(t);
                 if (m.find()) {
-                    r.capacity = Integer.parseInt(m.group(1));
-                    r.computedDrain = Double.parseDouble(m.group(2));
+                    r.capacity = (int) num(m.group(1));
+                    r.computedDrain = num(m.group(2));
                 }
                 continue;
             }
@@ -105,7 +111,8 @@ final class StatsParser {
                 while (cm.find()) {
                     String comp = cm.group(1);
                     String state = cm.group(2);
-                    double v = Double.parseDouble(cm.group(3));
+                    double v = num(cm.group(3));
+                    if (v < 0) continue;
                     if (state == null) {
                         if (screenOn) cur.screenOn += v; else cur.screenOff += v;
                         Double prev = cur.components.get(comp);
@@ -120,10 +127,6 @@ final class StatsParser {
                         }
                     }
                 }
-            } else if (!t.startsWith("(") && !t.startsWith("cpu") && !t.isEmpty()
-                    && !Character.isLowerCase(t.charAt(0))) {
-                // UID bloğu bitti (yeni başlık)
-                cur = null;
             }
         }
 
@@ -141,7 +144,18 @@ final class StatsParser {
 
     private static double mah(String t) {
         Matcher m = MAH.matcher(t);
-        return m.find() ? Double.parseDouble(m.group(1)) : -1;
+        return m.find() ? num(m.group(1)) : -1;
+    }
+
+    /** Güvenli sayı okuma: bozuk, sonsuz ya da makul olmayan değerler -1 döner. */
+    static double num(String s) {
+        if (s == null || s.length() > 32) return -1;
+        try {
+            double v = Double.parseDouble(s);
+            return (Double.isNaN(v) || Double.isInfinite(v) || v < 0 || v > 1e6) ? -1 : v;
+        } catch (NumberFormatException e) {
+            return -1;
+        }
     }
 
     /** "6m 56s 365ms (26,0%) realtime, ..." -> "6dk 56sn" */
@@ -152,9 +166,10 @@ final class StatsParser {
 
     static String prettyDuration(String d) {
         long ms = 0;
-        Matcher m = Pattern.compile("([0-9]+)(d|h|ms|m|s)").matcher(d);
+        Matcher m = Pattern.compile("([0-9]{1,12})(d|h|ms|m|s)").matcher(d);
         while (m.find()) {
-            long v = Long.parseLong(m.group(1));
+            long v;
+            try { v = Long.parseLong(m.group(1)); } catch (NumberFormatException e) { return "?"; }
             switch (m.group(2)) {
                 case "d": ms += v * 86400000L; break;
                 case "h": ms += v * 3600000L; break;
@@ -175,9 +190,13 @@ final class StatsParser {
     /** "u0a510" -> 10510, "1000" -> 1000 */
     static int toUid(String label) {
         Matcher m = Pattern.compile("^u(\\d+)a(\\d+)$").matcher(label);
-        if (m.find()) return Integer.parseInt(m.group(1)) * 100000 + 10000 + Integer.parseInt(m.group(2));
-        m = Pattern.compile("^u(\\d+)i(\\d+)$").matcher(label);
-        if (m.find()) return Integer.parseInt(m.group(1)) * 100000 + 99000 + Integer.parseInt(m.group(2));
-        try { return Integer.parseInt(label); } catch (NumberFormatException e) { return -1; }
+        try {
+            if (m.find()) return Integer.parseInt(m.group(1)) * 100000 + 10000 + Integer.parseInt(m.group(2));
+            m = Pattern.compile("^u(\\d+)i(\\d+)$").matcher(label);
+            if (m.find()) return Integer.parseInt(m.group(1)) * 100000 + 99000 + Integer.parseInt(m.group(2));
+            return Integer.parseInt(label);
+        } catch (NumberFormatException e) {
+            return -1;
+        }
     }
 }

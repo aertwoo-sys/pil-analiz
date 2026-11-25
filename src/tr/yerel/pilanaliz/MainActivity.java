@@ -123,12 +123,21 @@ public class MainActivity extends Activity {
                     for (int i = 0; i < Math.min(lines.size(), 6); i++) b.append(lines.get(i)).append('\n');
                     error = b.length() > 0 ? b.toString().trim() : "dumpsys boş çıktı verdi";
                 }
-                final String err = error;
-                final StatsParser.Result fres = err == null ? StatsParser.parse(lines) : null;
+                String err = error;
+                StatsParser.Result parsed = null;
+                if (err == null) {
+                    try {
+                        parsed = StatsParser.parse(lines);
+                    } catch (Throwable t) {
+                        err = "Kayıt ayrıştırılamadı: " + t;
+                    }
+                }
+                final StatsParser.Result fres = parsed;
+                final String ferr = err;
                 runOnUiThread(new Runnable() {
                     @Override public void run() {
-                        if (err != null || fres == null) {
-                            showPermissionHelp(err);
+                        if (ferr != null || fres == null) {
+                            showPermissionHelp(ferr);
                         } else {
                             last = fres;
                             render();
@@ -145,7 +154,7 @@ public class MainActivity extends Activity {
         status.setText("");
         content.removeAllViews();
         LinearLayout c = card();
-        c.addView(tv("İzin gerekli", 17, warn, true));
+        c.addView(tv("Kayıtlar okunamadı", 17, warn, true));
         TextView t = tv("Uygulamanın pil kayıtlarını okuyabilmesi için bilgisayardan bir kez şu komutları çalıştırın:\n\n"
                 + "adb shell pm grant tr.yerel.pilanaliz android.permission.DUMP\n"
                 + "adb shell pm grant tr.yerel.pilanaliz android.permission.BATTERY_STATS\n"

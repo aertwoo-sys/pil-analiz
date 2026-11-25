@@ -13,7 +13,7 @@ cd "$(dirname "$0")"
 VERSION_CODE="${VERSION_CODE:-1}"
 VERSION_NAME="${VERSION_NAME:-1.0}"
 KEYSTORE="${KEYSTORE:-imza.p12}"
-KEYSTORE_PASS="${KEYSTORE_PASS:-}"
+export KEYSTORE_PASS="${KEYSTORE_PASS:-}"
 
 if [ -n "${ANDROID_HOME:-}" ] && [ -d "$ANDROID_HOME/build-tools" ]; then
   BT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
@@ -44,6 +44,6 @@ DEX
 if [ ! -f "$KEYSTORE" ]; then
   echo "İmza anahtarı bulunamadı: $KEYSTORE" >&2; exit 1
 fi
-"$APKSIGNER" sign --ks "$KEYSTORE" --ks-type PKCS12 --ks-pass "pass:$KEYSTORE_PASS" --out PilAnalizi.apk build/aligned.apk
+"$APKSIGNER" sign --ks "$KEYSTORE" --ks-type PKCS12 --ks-pass env:KEYSTORE_PASS --out PilAnalizi.apk build/aligned.apk
 "$APKSIGNER" verify PilAnalizi.apk
 echo "OK -> $(pwd)/PilAnalizi.apk  (v$VERSION_NAME / $VERSION_CODE)"
