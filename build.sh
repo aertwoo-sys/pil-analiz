@@ -17,7 +17,11 @@ KEYSTORE_PASS="${KEYSTORE_PASS:-}"
 
 if [ -n "${ANDROID_HOME:-}" ] && [ -d "$ANDROID_HOME/build-tools" ]; then
   BT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
-  PLAT="$(ls -d "$ANDROID_HOME"/platforms/android-* | sort -V | tail -1)"
+  # Kararlı platformu seç (önizleme/DEV sürümlerini atla)
+  PLAT=""
+  for d in $(ls -d "$ANDROID_HOME"/platforms/android-[0-9]* | sort -V -r); do
+    grep -q "AndroidVersion.CodeName" "$d/source.properties" 2>/dev/null || { PLAT="$d"; break; }
+  done
   ANDROID_JAR="$PLAT/android.jar"
   AAPT="$BT/aapt"; ZIPALIGN="$BT/zipalign"; APKSIGNER="$BT/apksigner"
   DEX() { "$BT/d8" --min-api 26 --lib "$ANDROID_JAR" --output build $(find build/classes -name '*.class'); }

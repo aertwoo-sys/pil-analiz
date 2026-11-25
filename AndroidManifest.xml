@@ -6,9 +6,8 @@
   - DUMP ve BATTERY_STATS izinleri adb ile bir kez verilir (pm grant).
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="tr.yerel.pilanaliz"
-    android:versionCode="1"
-    android:versionName="1.0">
+    package="tr.yerel.pilanaliz">
+    <!-- versionCode/versionName derlemede verilir (build.sh). -->
 
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="35" />
 
