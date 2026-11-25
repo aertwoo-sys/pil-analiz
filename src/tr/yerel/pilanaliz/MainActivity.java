@@ -104,7 +104,8 @@ public class MainActivity extends Activity {
                 final List<String> lines = new ArrayList<>();
                 String error = null;
                 try {
-                    Process p = Runtime.getRuntime().exec(new String[]{"dumpsys", "batterystats", "--charged"});
+                    Process p = new ProcessBuilder("dumpsys", "batterystats", "--charged")
+                            .redirectErrorStream(true).start();
                     BufferedReader r = new BufferedReader(new InputStreamReader(p.getInputStream(), "UTF-8"));
                     String l;
                     while ((l = r.readLine()) != null) lines.add(l);
@@ -112,18 +113,21 @@ public class MainActivity extends Activity {
                 } catch (Exception e) {
                     error = e.toString();
                 }
-                final String err = error;
-                StatsParser.Result res = null;
-                boolean denied = false;
-                for (int i = 0; i < Math.min(lines.size(), 5); i++) {
-                    if (lines.get(i).contains("Permission Denial")) denied = true;
+                boolean ok = false;
+                for (String l : lines) {
+                    if (l.startsWith("Statistics since last charge")) { ok = true; break; }
                 }
-                if (err == null && !denied) res = StatsParser.parse(lines);
-                final StatsParser.Result fres = res;
-                final boolean fdenied = denied || (res != null && res.apps.isEmpty() && lines.size() < 5);
+                if (error == null && !ok) {
+                    // dumpsys'in kendi hata çıktısını göster (ilk satırlar)
+                    StringBuilder b = new StringBuilder();
+                    for (int i = 0; i < Math.min(lines.size(), 6); i++) b.append(lines.get(i)).append('\n');
+                    error = b.length() > 0 ? b.toString().trim() : "dumpsys boş çıktı verdi";
+                }
+                final String err = error;
+                final StatsParser.Result fres = err == null ? StatsParser.parse(lines) : null;
                 runOnUiThread(new Runnable() {
                     @Override public void run() {
-                        if (err != null || fdenied || fres == null) {
+                        if (err != null || fres == null) {
                             showPermissionHelp(err);
                         } else {
                             last = fres;
@@ -144,8 +148,10 @@ public class MainActivity extends Activity {
         c.addView(tv("İzin gerekli", 17, warn, true));
         TextView t = tv("Uygulamanın pil kayıtlarını okuyabilmesi için bilgisayardan bir kez şu komutları çalıştırın:\n\n"
                 + "adb shell pm grant tr.yerel.pilanaliz android.permission.DUMP\n"
-                + "adb shell pm grant tr.yerel.pilanaliz android.permission.BATTERY_STATS"
-                + (err != null ? "\n\nHata: " + err : ""), 14, text, false);
+                + "adb shell pm grant tr.yerel.pilanaliz android.permission.BATTERY_STATS\n"
+                + "adb shell pm grant tr.yerel.pilanaliz android.permission.INTERACT_ACROSS_USERS\n"
+                + "adb shell pm grant tr.yerel.pilanaliz android.permission.PACKAGE_USAGE_STATS"
+                + (err != null ? "\n\nAyrıntı:\n" + err : ""), 14, text, false);
         t.setTextIsSelectable(true);
         t.setPadding(0, dp(8), 0, 0);
         c.addView(t);
@@ -340,6 +346,9 @@ public class MainActivity extends Activity {
             case 1002: out = new String[]{"Bluetooth", "uid 1002"}; break;
             case 1010: out = new String[]{"Wi-Fi", "uid 1010"}; break;
             case 1013: out = new String[]{"Medya sunucusu", "uid 1013"}; break;
+            case 1036: out = new String[]{"Log servisi (logd)", "uid 1036"}; break;
+            case 1046: out = new String[]{"Medya kodlayıcı", "uid 1046"}; break;
+            case 1066: out = new String[]{"İstatistik servisi (statsd)", "uid 1066"}; break;
             case 1041: out = new String[]{"Ses sunucusu", "uid 1041"}; break;
             case 1047: out = new String[]{"Kamera sunucusu", "uid 1047"}; break;
             case 1073: out = new String[]{"Ağ yığını", "uid 1073"}; break;

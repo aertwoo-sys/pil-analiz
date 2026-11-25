@@ -13,6 +13,10 @@
 
     <uses-permission android:name="android.permission.DUMP" />
     <uses-permission android:name="android.permission.BATTERY_STATS" />
+    <!-- Android 16: dumpsys batterystats geçerli kullanıcıyı sorgular. -->
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
+    <!-- dumpsys bunu da kontrol eder; "Kullanım verilerine erişim" olarak görünür. -->
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
     <!-- Diğer uygulamaların adlarını göstermek için (UID -> uygulama adı). -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
 

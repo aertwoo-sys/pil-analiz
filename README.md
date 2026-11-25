@@ -15,6 +15,8 @@ Telefonda yerel çalışan, son şarjdan bu yana hangi uygulamanın **pil üzeri
 ```
 adb shell pm grant tr.yerel.pilanaliz android.permission.DUMP
 adb shell pm grant tr.yerel.pilanaliz android.permission.BATTERY_STATS
+adb shell pm grant tr.yerel.pilanaliz android.permission.INTERACT_ACROSS_USERS
+adb shell pm grant tr.yerel.pilanaliz android.permission.PACKAGE_USAGE_STATS
 ```
 
 Güncellemeler aynı anahtarla imzalandığı için izinler korunur.
